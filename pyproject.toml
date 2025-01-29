@@ -1,16 +1,14 @@
-[project]
-name = "rag-venv"
+[tool.poetry]
+name = "rag-law"
 version = "0.1.0"
-description = "initial package list and dependencies"
-authors = [
-    {name = "Mamoot"}
-]
+description = "Initial package list and dependencies"
+authors = ["Mamoot"]
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-    "haystack (>=0.42,<0.43)"
-]
 
+[tool.poetry.dependencies]
+python = ">=3.9"
+haystack = ">=0.42,<0.43"
+pandas = "^2.2.3"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
