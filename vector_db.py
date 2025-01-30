@@ -1,5 +1,25 @@
 from haystack.nodes import PreProcessor
 from haystack.document_stores import FAISSDocumentStore
+import sqlite3
+
+# Connect to SQLite (creates the file if it doesn't exist)
+conn = sqlite3.connect("my_database.db")
+
+# Create a cursor object to execute SQL commands
+cursor = conn.cursor()
+
+# Create a table
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_number INTEGER,
+    text TEXT
+)
+""")
+
+# Commit changes and close connection
+conn.commit()
+conn.close()
 
 
 # Inizialize FAISS DocumentStore
