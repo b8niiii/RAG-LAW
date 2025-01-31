@@ -46,10 +46,14 @@ class VectorDB:
             split_overlap=20,  # Keep 20 tokens overlapping for context retention
             clean_whitespace=True
         )
-
-    def preprocess_articles(self, articles): # List of articles
+      
+    def split_articles(code):
+        splitted_art = []
+        return splitted_art #returns a list 
+      
+    def preprocess_articles(self, splitted_art): # Splitted_art is a list of articles
         split_documents = []
-        for article in articles: # Each article is a dictionary with keys "article_number" and "text"
+        for article in splitted_art: # Each article is a dictionary with keys "article_number" and "text"
             chunks = self.preprocessor.process([{
                 "content": article["text"],
                 "meta": {"article_number": article["article_number"], "law_name": "Example Legal Code"}
@@ -77,4 +81,13 @@ class VectorDB:
         # Update document store with embeddings
         self.document_store.update_embeddings(self.retriever)
 
+    def query_legal_code(self, query, top_k=5):
+        results = self.retriever.retrieve(query=query, top_k=top_k)  # top_k is how many chunks you want back
 
+        response = []
+        for doc in results:
+            response.append({
+                "chunk_content": doc.content,   # The text chunk
+                "metadata": doc.meta            # Contains article_number, chunk_number, etc.
+            })
+        return response
