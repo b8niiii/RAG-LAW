@@ -1,13 +1,22 @@
-from haystack.nodes import PreProcessor, DensePassageRetriever
-from haystack.document_stores import FAISSDocumentStore
-import sqlite3
+from haystack.nodes import PreProcessor, DensePassageRetriever #to handle text splitting and the semantic search
+from haystack.document_stores import FAISSDocumentStore # to manage and store the embeddings
+import sqlite3 # imported to manage the simple SQLite database
+import logging
+import os
+logging.basicConfig(level=logging.INFO)
 
 class VectorDB:
     """
     VectorDB is a class that manages a vector-based document store using SQLite for
     storing articles and FAISS for managing embeddings.
     """
-    def __init__(self, db_path="my_database.db", faiss_path="sqlite:///document_store.db", document_store = None):
+    def __init__(self,
+                 db_path: str = os.getenv("DB_PATH", "my_database.db"), # it looks for the environment variable DB_PATH, if not found it uses the default value
+                 faiss_path: str = os.getenv("FAISS_PATH", "sqlite:///document_store.db"),
+                 split_length: int = int(os.getenv("SPLIT_LENGTH", 200)),
+                 split_overlap: int = int(os.getenv("SPLIT_OVERLAP", 20)),
+                 law_name: str = os.getenv("LAW_NAME", "Example Legal Code"),
+                 document_store = None):
         
         """
         Initialize the VectorDB instance with database paths.
@@ -18,10 +27,13 @@ class VectorDB:
              document_store (FAISSDocumentStore, optional): An existing FAISS document store.
         """
         
-        self.db_path = db_path
-        self.faiss_path = faiss_path
-        self.document_store = document_store
-        self.preprocessor = None
+        self.db_path = db_path # location for the sqlite database file
+        self.faiss_path = faiss_path # connection string for the FAISS document store
+        self.split_length = split_length
+        self.split_overlap = split_overlap
+        self.law_name = law_name
+        self.document_store = document_store # Optionally an existing FAISS document store
+        self.preprocessor = None 
         self.retriever = None
 
     def initialize_sqlite(self):
@@ -30,45 +42,47 @@ class VectorDB:
         Connect to SQLite, and create the articles table if it does not exist.
         """
 
-        # Connect to SQLite (creates the file if it doesn't exist)
-        conn = sqlite3.connect(self.db_path)
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS articles (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        article_number INTEGER,
+                        text TEXT
+                    )
+                """)
+                conn.commit()  # Explicit commit if needed
+        except sqlite3.Error as e:
+            # Handle or log the error as needed
+            print(f"SQLite error: {e}")
 
-        # Create a cursor object to execute SQL commands
-        cursor = conn.cursor()
-
-        # Create a table
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS articles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            article_number INTEGER,
-            text TEXT
-        )
-        """)
-
-        # Commit changes and close connection
-        conn.commit()
-        conn.close()
 
     def initialize_document_store(self):
 
         """
         Initialize the FAISS DocumentStore that will be used for storing document embeddings.
         """
-
-        self.document_store = FAISSDocumentStore(
-            sql_url=self.faiss_path,  # SQLite path to store the documents
-            faiss_index_factory_str="Flat",
-            return_embedding=True
-        )
-
+        if self.document_store is None:
+            self.document_store = FAISSDocumentStore(
+                sql_url=self.faiss_path,  
+                
+                # SQLite path to store the documents, note:  the FAISSDocumentStore
+                # also uses an SQLite database to store the documents and their metadata
+            
+                faiss_index_factory_str="Flat", # use a flat (brute-force) index, better results but less efficiency
+                return_embedding=True
+            )
+        else:
+            logging.info("Document store already initialized.") 
     def initialize_preprocessor(self):
         """
         Initialize the text preprocessor to split articles into chunks (around 200 tokens each).
         """
         self.preprocessor = PreProcessor(
             split_by="token",
-            split_length=200,  # Each chunk is ~200 tokens
-            split_overlap=20,  # Keep 20 tokens overlapping for context retention
+            split_length=self.split_length,  # Each chunk is ~200 tokens
+            split_overlap=self.split_overlap,  # Keep 20 tokens overlapping for context retention
             clean_whitespace=True
         )
       
@@ -90,7 +104,7 @@ class VectorDB:
         return splitted_art #returns a list 
       
     def preprocess_articles(self, splitted_art): # Splitted_art is a list of articles
-        
+        # each article is a dictionary with keys "article_number" and "text"
         """
         Preprocess the articles by splitting them into smaller text chunks using the preprocessor.
 
@@ -105,12 +119,12 @@ class VectorDB:
         for article in splitted_art: # Each article is a dictionary with keys "article_number" and "text"
             chunks = self.preprocessor.process([{
                 "content": article["text"],
-                "meta": {"article_number": article["article_number"], "law_name": "Example Legal Code"}
+                "meta": {"article_number": article["article_number"], "law_name": self.law_name}
             }])
             # Add chunk numbers to metadata
-            for i, chunk in enumerate(chunks):
-                chunk.meta["chunk_number"] = i + 1
-                split_documents.append(chunk)
+            for i, chunk in enumerate(chunks): # enumerates the chunks
+                chunk.meta["chunk_number"] = i + 1 # # Start chunk numbering from 1
+                split_documents.append(chunk) # Append the processed chunks to the list
         return split_documents
 
     def write_documents(self, documents):
@@ -144,8 +158,43 @@ class VectorDB:
         """
 
         self.document_store.update_embeddings(self.retriever)
+    
 
-    def query_legal_code(self, query, top_k=5):
+    def save_document_store(self, path):
+        """
+        Save the FAISS document store to a file.
+
+        Args:
+            path (str): Path to save the FAISS document store.
+        """
+        self.document_store.save(path)
+
+
+    def setup(self, articles):
+        self.initialize_sqlite()
+        self.initialize_document_store()
+        self.initialize_preprocessor()
+        articles = self.split_articles(articles)
+        return articles
+
+    def process_articles(self, articles):
+        processed_docs = self.preprocess_articles(articles)
+        self.write_documents(processed_docs)
+        return processed_docs
+
+    def build_retriever_and_index(self):
+        self.initialize_retriever()
+        self.update_embeddings()
+        self.save_document_store("document_store.db")
+
+    def vectorize(self, articles):
+        articles = self.setup(articles)
+        self.process_articles(articles)
+        self.build_retriever_and_index()
+
+        
+
+    def query_legal_code(self, query, top_k= 10):
 
         """
         Retrieve document chunks relevant to the input query.
@@ -167,39 +216,9 @@ class VectorDB:
                 "metadata": doc.meta            # Contains article_number, chunk_number, etc.
             })
         return response
-    
-
-    def save_document_store(self, path):
-        """
-        Save the FAISS document store to a file.
-
-        Args:
-            path (str): Path to save the FAISS document store.
-        """
-        self.document_store.save(path)
 
 
-    def vectorize(self, articles):
-
-        """
-        Run the full pipeline: initialize components, preprocess articles, write to the document store,
-        initialize the retriever, and update the embeddings.
-
-        Args:
-            articles (list): List of articles (each as a dict with keys "article_number" and "text").
-        """
-
-        self.initialize_sqlite()
-        self.initialize_document_store()
-        self.initialize_preprocessor()
-        splitted_art = self.split_articles(articles)
-        preprocessed_articles = self.preprocess_articles(splitted_art)
-        self.write_documents(preprocessed_articles)
-        self.initialize_retriever()
-        self.update_embeddings()
-        self.save_document_store("document_store.db")
 articles = [
         {"article_number": 1, "text": "This is the text of article 1."},
         {"article_number": 2, "text": "This is the text of article 2."},
     ]
-    
