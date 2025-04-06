@@ -2,7 +2,7 @@
 name = "rag-law"
 version = "0.1.0"
 description = "Initial package list and dependencies"
-authors = ["Mamoot"]
+authors = ["B8ni"]
 readme = "README.md"
 package-mode = false
 
@@ -14,6 +14,7 @@ farm-haystack = "^1.26.4"
 setuptools = "^75.8.0"
 faiss-cpu = "^1.9.0.post1"
 nltk = "^3.9.1"
+pypdf2 = "^3.0.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

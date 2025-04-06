@@ -1,5 +1,6 @@
 from haystack.nodes import PreProcessor, DensePassageRetriever #to handle text splitting and the semantic search
 from haystack.document_stores import FAISSDocumentStore # to manage and store the embeddings
+from articles_split import ArticlesSplit # imported to split the articles into smaller chunks
 import sqlite3 # imported to manage the simple SQLite database
 import logging
 import os
