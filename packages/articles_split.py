@@ -39,7 +39,25 @@ class ArticleSplitter:
         # Regex to match article headings.
         # This pattern handles variations like "Art. 7", "Art 7.", or uppercase "ART. 7."
         self.article_pattern = re.compile(r"^\s*Art\.?\s*(\d+)\s*\.?")
-
+    def extract_text_from_pdf(self, pdf_path: str) -> str:
+        """
+        Extract text from the provided PDF file using pdfplumber.
+        
+        Args:
+            pdf_path (str): Path to the PDF file.
+            
+        Returns:
+            str: The extracted text from the PDF.
+        """
+        text = ""
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+        return text
+    
+    
     def skip_line(self, line: str) -> bool:
         """
         Check if a line should be skipped based on any of the skip patterns.
@@ -113,3 +131,4 @@ class ArticleSplitter:
 
         # Return the list of article dictionaries
         return articles
+
