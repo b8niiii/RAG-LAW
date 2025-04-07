@@ -1,5 +1,7 @@
 # article_splitter.py
 import re
+import pytesseract
+from pdf2image import convert_from_path
 
 class ArticleSplitter:
     """
@@ -39,25 +41,39 @@ class ArticleSplitter:
         # Regex to match article headings.
         # This pattern handles variations like "Art. 7", "Art 7.", or uppercase "ART. 7."
         self.article_pattern = re.compile(r"^\s*Art\.?\s*(\d+)\s*\.?")
-    def extract_text_from_pdf(self, pdf_path: str) -> str:
+
+
+    def extract_text_from_pdf(self, pdf_path: str) -> str: #using ocr
         """
-        Extract text from the provided PDF file using pdfplumber.
+        Extract text from the provided PDF file using OCR to better handle multi-column layouts.
+        
+        This function converts each PDF page to an image, then uses Tesseract OCR with a page segmentation
+        mode that works better for multi-column layouts.
         
         Args:
             pdf_path (str): Path to the PDF file.
-            
+        
         Returns:
             str: The extracted text from the PDF.
         """
-        text = ""
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-        return text
-    
-    
+        # Convert PDF to a list of PIL images.
+        pages = convert_from_path(pdf_path)
+        full_text = ""
+        
+        # Use a PSM mode that may work better for multi-column text.
+        # Try '--psm 1' (Automatic page segmentation with OSD) or experiment with '--psm 4' (Assume a single column).
+        custom_config = r'--oem 3 --psm 1'
+        
+        for page in pages:
+            # Extract text from the image using Tesseract.
+            text = pytesseract.image_to_string(page, config=custom_config)
+            full_text += text + "\n\n"
+        
+        return full_text
+
+
+        
+
     def skip_line(self, line: str) -> bool:
         """
         Check if a line should be skipped based on any of the skip patterns.
@@ -131,4 +147,26 @@ class ArticleSplitter:
 
         # Return the list of article dictionaries
         return articles
+    
+    
+if __name__ == "__main__":
+    try:
+        splitter = ArticleSplitter()
+        pdf_path = "codes\\cod_civ\\libri.pdf"
+        
+        print("Starting PDF processing...")
+        raw_text = splitter.extract_text_from_pdf(pdf_path)
+        
+        print("Splitting text into articles...")
+        articles = splitter.split_articles(raw_text)
+        
+        print(f"Found {len(articles)} articles")
+        print("\nFirst 3 articles preview:")
+        for article in articles[:3]:
+            print(f"Article {article['article_number']}:")
+            print(f"Preview: {article['text'][:200]}")
+            print("-" * 40)
+            
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
 
