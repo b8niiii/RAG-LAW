@@ -3,6 +3,9 @@ import PyPDF2
 
 
 def split_pdf(pdf_path, split_page, part1_name, part2_name):
+    """"
+    Splits a PDF file into two parts at the specified page number.
+    """
     # Open the PDF file in read-binary mode.
     with open(pdf_path, 'rb') as infile:
         reader = PyPDF2.PdfReader(infile)

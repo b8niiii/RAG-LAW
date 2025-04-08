@@ -43,7 +43,7 @@ class ArticleSplitter:
         self.article_pattern = re.compile(r"^\s*Art\.?\s*(\d+)\s*\.?")
 
 
-    def extract_text_from_pdf(self, pdf_path: str) -> str: #using ocr
+    def extract_text_from_pdf(self, pdf_path: str) -> str: #using ocr 
         """
         Extract text from the provided PDF file using OCR to better handle multi-column layouts.
         
@@ -89,7 +89,7 @@ class ArticleSplitter:
                 return True
         return False
 
-    def split_articles(self, text: str):
+    def split_articles(self, text: str): 
         """
         Split the raw text into a list of article dictionaries.
         
@@ -148,25 +148,3 @@ class ArticleSplitter:
         # Return the list of article dictionaries
         return articles
     
-    
-if __name__ == "__main__":
-    try:
-        splitter = ArticleSplitter()
-        pdf_path = "codes\\cod_civ\\libri.pdf"
-        
-        print("Starting PDF processing...")
-        raw_text = splitter.extract_text_from_pdf(pdf_path)
-        
-        print("Splitting text into articles...")
-        articles = splitter.split_articles(raw_text)
-        
-        print(f"Found {len(articles)} articles")
-        print("\nFirst 3 articles preview:")
-        for article in articles[:3]:
-            print(f"Article {article['article_number']}:")
-            print(f"Preview: {article['text'][:200]}")
-            print("-" * 40)
-            
-    except Exception as e:
-        print(f"Error occurred: {str(e)}")
-
