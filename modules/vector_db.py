@@ -87,22 +87,6 @@ class VectorDB:
             clean_whitespace=True
         )
       
-    def split_articles(self, code):
-
-        """
-        Process or split the raw articles if needed. 
-        
-        Currently, this is a placeholder that returns the articles unchanged.
-
-        Args:
-            articles (list): List of article dictionaries, each with keys "article_number" and "text".
-        
-        Returns:
-            list: Processed articles.
-        """
-
-        splitted_art = code
-        return splitted_art #returns a list 
       
     def preprocess_articles(self, splitted_art): # Splitted_art is a list of articles
         # each article is a dictionary with keys "article_number" and "text"
