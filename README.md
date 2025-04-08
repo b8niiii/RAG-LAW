@@ -23,3 +23,10 @@ pages = convert_from_path(pdf_path, poppler_path=r"C:\poppler-24.08.0\bin")
 ```
 
 This ensures that pdf2image knows exactly where to find Poppler without relying on the system PATH.
+
+Document Store (FAISSDocumentStore instance):
+This object encapsulates the FAISS index functionality, meaning it creates and manages the vector index (the “FAISS index”) that holds the document embeddings for fast similarity searches. It provides a unified interface to query against these embeddings.
+
+faiss_path (or sql_url):
+This attribute specifies the connection URL for the SQL database (typically SQLite) that the FAISSDocumentStore uses to store the document texts and metadata (but not the embeddings themselves). The SQL database keeps track of the document details and other metadata needed for your application.
+

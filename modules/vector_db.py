@@ -155,27 +155,29 @@ class VectorDB:
         self.document_store.save(path)
 
 
-    def setup(self, articles):
+    def setup(self):
         self.initialize_sqlite()
         self.initialize_document_store()
         self.initialize_preprocessor()
-        articles = self.split_articles(articles)
-        return articles
 
     def process_articles(self, articles):
         processed_docs = self.preprocess_articles(articles)
         self.write_documents(processed_docs)
         return processed_docs
 
-    def build_retriever_and_index(self):
+    def build_retriever_and_index(self, db_path =  None ):
+        """
+        Build the retriever and index for the document store. 
+
+        """
         self.initialize_retriever()
         self.update_embeddings()
-        self.save_document_store("document_store.db")
+        self.save_document_store(db_path)
 
-    def vectorize(self, articles):
-        articles = self.setup(articles)
+    def vectorize(self, articles, db_path = None):
+        self.setup()
         self.process_articles(articles)
-        self.build_retriever_and_index()
+        self.build_retriever_and_index(db_path)
 
         
 
