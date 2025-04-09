@@ -196,8 +196,9 @@ class VectorDB:
         self.initialize_document_store()
         self.initialize_preprocessor()
 
-    def process_articles(self, articles):
-        processed_docs = self.preprocess_articles(articles)
+    def process_articles(self, json_file_path = None):
+        self.populate_sqlite_from_json(json_file_path)
+        processed_docs = self.preprocess_articles(json_file_path)
         self.write_documents(processed_docs)
         return processed_docs
 
@@ -210,9 +211,9 @@ class VectorDB:
         self.update_embeddings()
         self.save_document_store(db_path)
 
-    def vectorize(self, articles, db_path = None):
+    def vectorize(self, json_file_path = None, db_path = None):
         self.setup()
-        self.process_articles(articles)
+        self.process_articles(json_file_path)
         self.build_retriever_and_index(db_path)
 
         
@@ -241,7 +242,3 @@ class VectorDB:
         return response
 
 
-articles = [
-        {"article_number": 1, "text": "This is the text of article 1."},
-        {"article_number": 2, "text": "This is the text of article 2."},
-    ]
