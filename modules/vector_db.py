@@ -1,10 +1,14 @@
 from haystack.nodes import PreProcessor, DensePassageRetriever #to handle text splitting and the semantic search
 from haystack.document_stores import FAISSDocumentStore # to manage and store the embeddings
 from articles_split import ArticlesSplit # imported to split the articles into smaller chunks
+from dotenv import load_dotenv
+import json # imported to handle the JSON file with the articles
 import sqlite3 # imported to manage the simple SQLite database
 import logging
 import os
 logging.basicConfig(level=logging.INFO)
+
+load_dotenv()  # This will read the .env file and set the environment variables accordingly.
 
 class VectorDB:
     """
@@ -12,7 +16,7 @@ class VectorDB:
     storing articles and FAISS for managing embeddings.
     """
     def __init__(self,
-                 db_path: str = os.getenv("DB_PATH", "my_database.db"), # it looks for the environment variable DB_PATH, if not found it uses the default value
+                 db_path: str = os.getenv("DB_PATH", "data\\sqlite.db"), # it looks for the environment variable DB_PATH, if not found it uses the default value
                  faiss_path: str = os.getenv("FAISS_PATH", "sqlite:///document_store.db"),
                  split_length: int = int(os.getenv("SPLIT_LENGTH", 200)),
                  split_overlap: int = int(os.getenv("SPLIT_OVERLAP", 20)),
@@ -86,30 +90,62 @@ class VectorDB:
             split_overlap=self.split_overlap,  # Keep 20 tokens overlapping for context retention
             clean_whitespace=True
         )
-      
-      
-    def preprocess_articles(self, splitted_art): # Splitted_art is a list of articles
-        # each article is a dictionary with keys "article_number" and "text"
+    def populate_sqlite_from_json(self, json_file_path: str):
         """
-        Preprocess the articles by splitting them into smaller text chunks using the preprocessor.
+        Read articles from a JSON file and insert them into the SQLite database.
+        
+        Args:
+            json_file_path (str): Path to the JSON file containing articles.
+        """
+        try:
+            # Open and load the JSON file
+            with open(json_file_path, "r", encoding="utf-8") as f:
+                articles = json.load(f)
+            
+            # Connect to SQLite and insert articles
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                for article in articles:
+                    cursor.execute(
+                        "INSERT INTO articles (article_number, text) VALUES (?, ?)",
+                        (article.get("article_number"), article.get("text"))
+                    )
+                conn.commit()
+            print("Articles have been successfully inserted into the SQLite database.")
+        except Exception as e:
+            print(f"An error occurred while populating the SQLite DB: {e}")
+      
+      
+    def preprocess_articles(self, json_file_path: str):
+        """
+        Preprocess the articles by reading from a JSON file and splitting them into smaller text chunks using the preprocessor.
+
+        The JSON file should contain a list of dictionaries, each with keys "article_number" and "text".
 
         Args:
-            splitted_art (list): List of article dictionaries with "article_number" and "text".
+            json_file_path (str): Path to the JSON file with the articles.
         
         Returns:
             list: List of processed document chunks with metadata.
         """
-        
+        try:
+            # Open and load the JSON file containing the articles
+            with open(json_file_path, "r", encoding="utf-8") as file:
+                articles = json.load(file)
+        except Exception as e:
+            raise Exception(f"Error reading JSON file: {e}")
+
         split_documents = []
-        for article in splitted_art: # Each article is a dictionary with keys "article_number" and "text"
+        for article in articles:
+            # Process each article by splitting the text into chunks
             chunks = self.preprocessor.process([{
                 "content": article["text"],
                 "meta": {"article_number": article["article_number"], "law_name": self.law_name}
             }])
-            # Add chunk numbers to metadata
-            for i, chunk in enumerate(chunks): # enumerates the chunks
-                chunk.meta["chunk_number"] = i + 1 # # Start chunk numbering from 1
-                split_documents.append(chunk) # Append the processed chunks to the list
+            # Add chunk numbering to metadata and append each chunk to the list
+            for i, chunk in enumerate(chunks):
+                chunk.meta["chunk_number"] = i + 1  # Starts numbering at 1
+                split_documents.append(chunk)
         return split_documents
 
     def write_documents(self, documents):

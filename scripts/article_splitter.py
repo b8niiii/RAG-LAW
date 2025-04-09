@@ -3,6 +3,8 @@ import os
 import argparse
 from modules.articles_split import ArticleSplitter
 
+# to give the output file a name run "poetry run python -m your_script.py --output custom_filename.json
+
 def main():
     # Set up argument parsing to allow passing the output file name from the terminal
     parser = argparse.ArgumentParser(
