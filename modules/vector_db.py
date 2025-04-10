@@ -1,6 +1,5 @@
 from haystack.nodes import PreProcessor, DensePassageRetriever #to handle text splitting and the semantic search
 from haystack.document_stores import FAISSDocumentStore # to manage and store the embeddings
-from articles_split import ArticlesSplit # imported to split the articles into smaller chunks
 from dotenv import load_dotenv
 import json # imported to handle the JSON file with the articles
 import sqlite3 # imported to manage the simple SQLite database
@@ -62,24 +61,20 @@ class VectorDB:
             # Handle or log the error as needed
             print(f"SQLite error: {e}")
 
-
     def initialize_document_store(self):
-
         """
         Initialize the FAISS DocumentStore that will be used for storing document embeddings.
         """
         if self.document_store is None:
             self.document_store = FAISSDocumentStore(
                 sql_url=self.faiss_path,  
-                
-                # SQLite path to store the documents, note:  the FAISSDocumentStore
-                # also uses an SQLite database to store the documents and their metadata
-            
-                faiss_index_factory_str="Flat", # use a flat (brute-force) index, better results but less efficiency
-                return_embedding=True
+                faiss_index_factory_str="Flat",  # use a flat (brute-force) index
+                return_embedding=True,
+                embedding_dim=384  # Set this to match your model's output dimension
             )
         else:
-            logging.info("Document store already initialized.") 
+            logging.info("Document store already initialized.")
+
     def initialize_preprocessor(self):
         """
         Initialize the text preprocessor to split articles into chunks (around 200 tokens each).
@@ -167,10 +162,10 @@ class VectorDB:
 
         self.retriever = DensePassageRetriever(
             document_store=self.document_store,
-            query_embedding_model="facebook/dpr-question_encoder-single-nq-base",
-            passage_embedding_model="facebook/dpr-ctx_encoder-single-nq-base",
+            query_embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            passage_embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
             use_gpu=False  # Set to True if you have a GPU
-        )
+            )
 
     def update_embeddings(self):
         
@@ -190,19 +185,42 @@ class VectorDB:
         """
         self.document_store.save(path)
 
+    
+    def fetch_article_by_number(self, db_path, article_number):
+        """
+        Retrieve the full article text from the SQLite database for the given article number.
 
+        Args:
+            db_path (str): The path to your SQLite database file.
+            article_number (int): The article number to search for.
+
+        Returns:
+            str or None: The article text if found, otherwise None.
+        """
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT text FROM articles WHERE article_number = ?", (article_number,))
+                row = cursor.fetchone()
+                if row:
+                    return row[0]
+                else:
+                    return None
+        except sqlite3.Error as e:
+            print(f"SQLite error: {e}")
+            return None
     def setup(self):
         self.initialize_sqlite()
         self.initialize_document_store()
         self.initialize_preprocessor()
 
-    def process_articles(self, json_file_path = None):
+    def process_articles(self, json_file_path):
         self.populate_sqlite_from_json(json_file_path)
         processed_docs = self.preprocess_articles(json_file_path)
         self.write_documents(processed_docs)
         return processed_docs
 
-    def build_retriever_and_index(self, db_path =  None ):
+    def build_retriever_and_index(self, db_path):
         """
         Build the retriever and index for the document store. 
 
@@ -211,7 +229,7 @@ class VectorDB:
         self.update_embeddings()
         self.save_document_store(db_path)
 
-    def vectorize(self, json_file_path = None, db_path = None):
+    def vectorize(self, json_file_path, db_path):
         self.setup()
         self.process_articles(json_file_path)
         self.build_retriever_and_index(db_path)
