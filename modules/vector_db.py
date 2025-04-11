@@ -15,8 +15,8 @@ class VectorDB:
     storing articles and FAISS for managing embeddings.
     """
     def __init__(self,
-                 db_path: str = os.getenv("DB_PATH", "data\\sqlite.db"), # it looks for the environment variable DB_PATH, if not found it uses the default value
-                 faiss_path: str = os.getenv("FAISS_PATH", "sqlite:///document_store.db"),
+                 sql_path: str = os.getenv("SQL_PATH", "data\\sqlite.db"), # it looks for the environment variable DB_PATH, if not found it uses the default value
+                 faiss_path: str = os.getenv("FAISS_PATH", "sqlite:///document_store.db"), # connection string for the FAISS document store, if not found it uses the default value of "sqlite:///document_store.db"
                  split_length: int = int(os.getenv("SPLIT_LENGTH", 200)),
                  split_overlap: int = int(os.getenv("SPLIT_OVERLAP", 20)),
                  law_name: str = os.getenv("LAW_NAME", "Example Legal Code"),
@@ -31,7 +31,7 @@ class VectorDB:
              document_store (FAISSDocumentStore, optional): An existing FAISS document store.
         """
         
-        self.db_path = db_path # location for the sqlite database file
+        self.sql_path = sql_path # location for the sqlite database file
         self.faiss_path = faiss_path # connection string for the FAISS document store
         self.split_length = split_length
         self.split_overlap = split_overlap
@@ -47,7 +47,7 @@ class VectorDB:
         """
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with sqlite3.connect(self.sql_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
@@ -98,7 +98,7 @@ class VectorDB:
                 articles = json.load(f)
             
             # Connect to SQLite and insert articles
-            with sqlite3.connect(self.db_path) as conn:
+            with sqlite3.connect(self.sql_path) as conn:
                 cursor = conn.cursor()
                 for article in articles:
                     cursor.execute(
@@ -186,7 +186,7 @@ class VectorDB:
         self.document_store.save(path)
 
     
-    def fetch_article_by_number(self, db_path, article_number):
+    def fetch_article_by_number(self, sql_path, article_number):
         """
         Retrieve the full article text from the SQLite database for the given article number.
 
@@ -198,7 +198,7 @@ class VectorDB:
             str or None: The article text if found, otherwise None.
         """
         try:
-            with sqlite3.connect(db_path) as conn:
+            with sqlite3.connect(sql_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT text FROM articles WHERE article_number = ?", (article_number,))
                 row = cursor.fetchone()
@@ -220,14 +220,14 @@ class VectorDB:
         self.write_documents(processed_docs)
         return processed_docs
 
-    def build_retriever_and_index(self, db_path):
+    def build_retriever_and_index(self, faiss_path):
         """
         Build the retriever and index for the document store. 
 
         """
         self.initialize_retriever()
         self.update_embeddings()
-        self.save_document_store(db_path)
+        self.save_document_store(faiss_path)
 
     def vectorize(self, json_file_path, db_path):
         self.setup()

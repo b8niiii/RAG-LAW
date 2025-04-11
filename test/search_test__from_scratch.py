@@ -19,7 +19,7 @@ for result in results:
     article_num = result["metadata"].get("article_number")
     # Avoid duplicates by storing each article only once.
     if article_num not in articles_grouped:
-        articles_grouped[article_num] = vector_db.fetch_article_by_number(vector_db.db_path, article_num)
+        articles_grouped[article_num] = vector_db.fetch_article_by_number(vector_db.sql_path, article_num)
 
 # Print the complete article texts retrieved from SQLite
 for article_num, full_text in articles_grouped.items():
