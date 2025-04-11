@@ -176,14 +176,14 @@ class VectorDB:
         self.document_store.update_embeddings(self.retriever)
     
 
-    def save_document_store(self, path):
+    def save_document_store(self, faiss_path):
         """
         Save the FAISS document store to a file.
 
         Args:
             path (str): Path to save the FAISS document store.
         """
-        self.document_store.save(path)
+        self.document_store.save(faiss_path_path)
 
     
     def fetch_article_by_number(self, sql_path, article_number):
