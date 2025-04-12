@@ -4,19 +4,19 @@ from haystack.document_stores import FAISSDocumentStore
 
 document_store = FAISSDocumentStore.load("data\\vector_db.faiss")
 
-print("11111111111111111111111111")
+
 vector_db = VectorDB(sql_path= "data\\sqlite.db", faiss_path= "sqlite:///data/document_store.db", document_store = document_store) # For SQLite databases, the connection string should start with sqlite:/// for a relative file path 
-print("2222222222222222222222222222")
+
 # Initialize the FAISS document store (this will load your persisted FAISS index)
 vector_db.initialize_document_store()
-print("33333333333333333333333333")
+
 # Set up the retriever to enable semantic search queries
 vector_db.initialize_retriever()
-print("44444444444444444444444444")
+
 # Now you can perform searches with your saved index without re-indexing the articles
 query = input("Enter your legal query: ")  # Prompt user for a query
 results = vector_db.query_legal_code(query, top_k=10)
-print("55555555555555555555555555")
+
 # Collect the unique article numbers from the returned chunks.
 unique_article_numbers = {result["metadata"].get("article_number") for result in results}
 
