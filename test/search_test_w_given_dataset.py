@@ -5,7 +5,7 @@ from haystack.document_stores import FAISSDocumentStore
 document_store = FAISSDocumentStore.load("data\\vector_db.faiss")
 
 print("11111111111111111111111111")
-vector_db = VectorDB(sql_path= "none", faiss_path= "sqlite:///document_store.db", document_store = document_store) # For SQLite databases, the connection string should start with sqlite:/// for a relative file path 
+vector_db = VectorDB(sql_path= "data\\sqlite.db", faiss_path= "sqlite:///data/document_store.db", document_store = document_store) # For SQLite databases, the connection string should start with sqlite:/// for a relative file path 
 print("2222222222222222222222222222")
 # Initialize the FAISS document store (this will load your persisted FAISS index)
 vector_db.initialize_document_store()

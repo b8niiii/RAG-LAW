@@ -16,7 +16,7 @@ class VectorDB:
     """
     def __init__(self,
                  sql_path: str = os.getenv("SQL_PATH", "data\\sqlite.db"), # it looks for the environment variable DB_PATH, if not found it uses the default value
-                 faiss_path: str = os.getenv("FAISS_PATH", "sqlite:///document_store.db"), # connection string for the FAISS document store, if not found it uses the default value of "sqlite:///document_store.db"
+                 faiss_path: str = os.getenv("FAISS_PATH", "sqlite:///data/document_store.db"), # connection string for the FAISS document store, if not found it uses the default value of "sqlite:///document_store.db"
                  split_length: int = int(os.getenv("SPLIT_LENGTH", 200)),
                  split_overlap: int = int(os.getenv("SPLIT_OVERLAP", 20)),
                  law_name: str = os.getenv("LAW_NAME", "Example Legal Code"),
@@ -183,7 +183,7 @@ class VectorDB:
         Args:
             path (str): Path to save the FAISS document store.
         """
-        self.document_store.save(faiss_path_path)
+        self.document_store.save(faiss_path)
 
     
     def fetch_article_by_number(self, sql_path, article_number):
