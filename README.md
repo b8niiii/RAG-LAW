@@ -5,10 +5,10 @@
 RAG-LAW combines the original retrieval pipeline and its Streamlit interface in one repository. The backend uses a multilingual MiniLM encoder, FAISS for passage search and SQLite for complete article text. The app includes a quick fictional demo and a searchable edition of the **Italian Civil Code**.
 
 <p align="center">
-  <img src="docs/images/search-demo.jpg" alt="The RAG-LAW Streamlit demo retrieves a fictional rental article about major repairs" width="880">
+  <img src="docs/images/civil-code-demo.gif" alt="RAG-LAW searches the Italian Civil Code and opens the full text of Article 1576" width="880">
 </p>
 
-*The screenshot shows a real query against the included fictional corpus. The results are retrieved excerpts.*
+The walkthrough submits a real query on the Civil Code and opens the full text of Article 1576. [Normattiva source](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:regio.decreto:1942-03-16;262) · [Static preview of the fictional demo](docs/images/search-demo.jpg)
 
 ## Run the demo
 
