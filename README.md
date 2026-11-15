@@ -1,110 +1,79 @@
 # RAG-LAW
 
-Semantic search over legal codes using dense embeddings, FAISS and SQLite.
+**Search Italian legal documents by meaning.** Turn a question into ranked passages, then open the full article for context.
 
-This university project explores a retrieval pipeline for turning legal PDFs into structured articles, indexing their text and retrieving the most relevant provisions for a natural-language query. It is a search system, not a source of legal advice.
+RAG-LAW combines the original retrieval pipeline with the Streamlit interface previously developed in RAG-LAW-UI. The backend uses a multilingual MiniLM encoder, FAISS for passage search and SQLite for complete article text.
 
-## What it does
+<p align="center">
+  <img src="docs/images/search-demo.jpg" alt="The RAG-LAW Streamlit demo retrieves a fictional rental article about major repairs" width="880">
+</p>
 
-1. Extracts text from a legal PDF.
-2. Splits the document into numbered articles.
-3. Stores complete articles and metadata in SQLite.
-4. Chunks and embeds the articles with a multilingual sentence-transformer.
-5. Builds a FAISS index for semantic retrieval.
-6. Returns the full text of the highest-ranking articles.
+*The screenshot shows a real query against the included fictional corpus. The results are retrieved excerpts.*
 
-## Architecture
+## Run the demo
 
-```text
-PDF
- └─> article extraction
-      └─> JSON articles
-           ├─> SQLite: full text and metadata
-           └─> preprocessing and embeddings
-                └─> FAISS semantic index
-                     └─> natural-language query
-```
-
-The main implementation is in `modules/vector_db.py`. PDF and article parsing utilities are under `modules/`, runnable helpers under `scripts/`, and end-to-end examples under `test/`.
-
-## Tech stack
-
-- Python 3.9+
-- Haystack 1.x
-- FAISS
-- Sentence Transformers
-- SQLite
-- PyPDF2, pdf2image and Tesseract for document processing
-- Poetry for dependency management
-
-## Setup
+Use **Python 3.11** on ARM64 or x86-64. The first start downloads the tokenizer and a quantized ONNX export of [MiniLM](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2) from a pinned revision (about 128 MB). The example corpus is included and the app needs no API key.
 
 ```bash
-git clone https://github.com/b8niiii/RAG-LAW.git
-cd RAG-LAW
-poetry install
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn api.main:app --port 8000
 ```
 
-Some PDF workflows require external tools: [Poppler](https://poppler.freedesktop.org/) and [Tesseract OCR](https://github.com/tesseract-ocr/tesseract).
-
-Do not commit copyrighted legal corpora or generated databases. Place local inputs under `codes/` and generated files under `data/`; both should remain environment-specific.
-
-## Usage
-
-Prepare a PDF path in `scripts/article_splitter.py`, then extract its articles:
+Activate the same virtual environment in a second terminal and start the UI.
 
 ```bash
-poetry run python scripts/article_splitter.py --output articles.json
+python -m streamlit run ui/main.py
 ```
 
-Build the SQLite/FAISS index and run a query:
+Open [Streamlit](http://localhost:8501) and submit the pre-filled question about repairs in a rented home. The top result should be **Article 101 · Riparazioni straordinarie dell’abitazione**. Open **Read full article** to see the rest of the provision. The [API documentation](http://127.0.0.1:8000/docs) shows the request and response schemas.
+
+With Docker Compose, run `docker compose up --build` and open the same Streamlit URL. The API image caches the model during the build. The initial build needs internet access.
+
+## How search works
+
+![RAG-LAW architecture showing corpus indexing with MiniLM, FAISS and SQLite and the Streamlit-to-FastAPI request flow](docs/images/architecture.png)
+
+At startup, the API splits articles into overlapping passages, embeds them and builds an in-memory FAISS index. SQLite stores each full article. On a search request, the same encoder embeds the question, FAISS ranks the passages by cosine similarity and SQLite supplies the article text for each hit. Each API process loads the model and index once.
 
 ```bash
-poetry run python test/search_test_from_scratch.py
+curl -s http://127.0.0.1:8000/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"Chi paga le riparazioni straordinarie in una casa in affitto?","top_k":3}'
 ```
 
-To reuse an existing index:
+Use `GET /health` to check readiness and see the indexed article and passage counts. Run `python predict.py "query" --top-k 3` for a command-line API client, or `python main.py "query"` to search locally without the server.
+
+## Use your own corpus
+
+The demo ships with [eight fictional Italian articles](examples/italian_demo.json). For another corpus, set `RAGLAW_CORPUS_PATH` when starting the API. Supply a UTF-8 JSON array whose records contain `article_number` and `text`, with an optional `title`. The following commands convert a PDF with numbered Italian articles after you install Poppler and Tesseract on your system.
 
 ```bash
-poetry run python test/search_test_w_given_dataset.py
+python -m pip install -r requirements-ocr.txt
+python -m scripts.article_splitter path/to/code.pdf --output data/articles.json
+RAGLAW_CORPUS_PATH=data/articles.json python -m uvicorn api.main:app --port 8000
 ```
 
-The scripts currently serve as reproducible examples rather than a stable command-line API. Paths may need to be adapted to the local legal corpus.
+Review the extracted text before indexing it. The parser expects headings such as `Art. 101` and OCR quality depends on the document layout. Use source material you have permission to process and distribute.
 
-## Repository structure
+## Cloud setup and scope
 
-```text
-.
-├── main.py                  # minimal query example
-├── modules/
-│   ├── articles_split.py    # article extraction
-│   ├── pdf_split.py         # PDF utilities
-│   └── vector_db.py         # storage, embeddings and retrieval
-├── scripts/
-│   └── article_splitter.py
-├── test/                    # end-to-end usage examples
-├── pyproject.toml
-└── poetry.lock
-```
+The original web prototype called a FastAPI container on Google Cloud Run. For a new deployment, build the `api` Docker target, which serves on port 8080. Set `RAGLAW_API_URL` on the Streamlit host to the API's base URL. For an offline model copy, set `RAGLAW_MODEL_PATH` to a directory with `tokenizer.json` and the ONNX file for your CPU from the pinned model revision.
 
-## Current status and limitations
+The demo indexes a small corpus at startup and runs exact FAISS search on CPU. A larger deployment would need measured startup time, memory and concurrent-query latency. On a growing corpus, prebuilding the index would avoid repeating embedding work on each instance. Retrieval quality has yet to be measured against a labelled legal-search benchmark.
 
-This is an educational prototype.
+The included corpus is fictional and the project is for demonstration and research.
 
-- Retrieval quality has not yet been evaluated against a labelled benchmark.
-- OCR quality depends on the source PDF and local Poppler/Tesseract installation.
-- The code targets Haystack 1.x and uses a CPU FAISS index.
-- The repository does not distribute a legal corpus or pre-built index.
-- Retrieved passages must be verified against an authoritative legal source.
+## Repository guide
 
-## Roadmap
+| Path | What it contains |
+| --- | --- |
+| `ui/` | Streamlit search interface |
+| `api/` | FastAPI search and readiness routes |
+| `modules/` | MiniLM/FAISS retrieval, SQLite access and PDF utilities |
+| `examples/` | Included Italian demo corpus |
+| `scripts/` | PDF-to-JSON extraction |
+| `Dockerfile`, `compose.yaml` | Separate build targets and local orchestration |
 
-- Add a small redistributable example corpus.
-- Replace example scripts with a documented CLI.
-- Add retrieval metrics such as Recall@k and MRR.
-- Add automated tests and continuous integration.
-- Upgrade or isolate the legacy Haystack dependency.
-
-## License
-
-Released under the MIT License.
+Code released under the [MIT License](LICENSE).

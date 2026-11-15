@@ -1,55 +1,30 @@
-import json
-import os
+"""Turn a PDF with numbered Italian articles into the JSON corpus format."""
+
 import argparse
+import json
+from pathlib import Path
+
 from modules.articles_split import ArticleSplitter
 
-# to give the output file a name run "poetry run python -m your_script.py --output custom_filename.json
 
 def main():
-    # Set up argument parsing to allow passing the output file name from the terminal
-    parser = argparse.ArgumentParser(
-        description="Extract articles from a PDF and save them to a JSON file."
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="articles.json",
-        help="Name of the output JSON file (default: articles.json)"
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("pdf", type=Path, help="Path to a PDF you have permission to process")
+    parser.add_argument("--output", type=Path, default=Path("data/articles.json"))
     args = parser.parse_args()
 
-    try:
-        splitter = ArticleSplitter()
-        pdf_path = "codes\\cod_civ\\libri.pdf"
-        
-        print("Starting PDF processing...")
-        raw_text = splitter.extract_text_from_pdf(pdf_path)
-        
-        print("Splitting text into articles...")
-        articles = splitter.split_articles(raw_text)
-        
-        print(f"Found {len(articles)} articles")
-        print("\nFirst 3 articles preview:")
-        for article in articles[:3]:
-            print(f"Article {article['article_number']}:")
-            print(f"Preview: {article['text'][:200]}")
-            print("-" * 40)
-    except Exception as e:
-        print(f"Error occurred: {str(e)}")
-        return
+    if not args.pdf.is_file():
+        parser.error(f"PDF not found: {args.pdf}")
+    splitter = ArticleSplitter()
+    text = splitter.extract_text_from_pdf(str(args.pdf))
+    articles = [article for article in splitter.split_articles(text) if article["text"]]
+    if not articles:
+        parser.error("No numbered articles found. Check the PDF layout and OCR output.")
 
-    # Ensure the "data" folder exists
-    data_folder = "data"
-    os.makedirs(data_folder, exist_ok=True)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(articles, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Saved {len(articles)} articles to {args.output}")
 
-    # Create the full output file path using the name provided via command line argument
-    output_file = os.path.join(data_folder, args.output)
-
-    # Write the articles to the JSON file
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(articles, f, ensure_ascii=False, indent=2)
-
-    print(f"Articles have been saved to {output_file}")
 
 if __name__ == "__main__":
     main()
