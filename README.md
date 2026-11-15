@@ -2,7 +2,7 @@
 
 **Search Italian legal documents by meaning.** Turn a question into ranked passages, then open the full article for context.
 
-RAG-LAW combines the original retrieval pipeline with the Streamlit interface previously developed in RAG-LAW-UI. The backend uses a multilingual MiniLM encoder, FAISS for passage search and SQLite for complete article text.
+RAG-LAW combines the original retrieval pipeline and its Streamlit interface in one repository. The backend uses a multilingual MiniLM encoder, FAISS for passage search and SQLite for complete article text. The app includes a quick fictional demo and a searchable edition of the **Italian Civil Code**.
 
 <p align="center">
   <img src="docs/images/search-demo.jpg" alt="The RAG-LAW Streamlit demo retrieves a fictional rental article about major repairs" width="880">
@@ -31,11 +31,23 @@ Open [Streamlit](http://localhost:8501) and submit the pre-filled question about
 
 With Docker Compose, run `docker compose up --build` and open the same Streamlit URL. The API image caches the model during the build. The initial build needs internet access.
 
+## Search the Italian Civil Code
+
+The included edition indexes **3,064 articles** across all six books as of **15 November 2026**. Try the example question about repairs in a rented home and look for **Article 1576**. Sources and dates are shown beneath the search results. [Normattiva](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:regio.decreto:1942-03-16;262)
+
+```bash
+RAGLAW_BUILD_CORPUS=examples/civil_code.json.gz docker compose up --build
+```
+
+Without Docker, set `RAGLAW_CORPUS_PATH=examples/civil_code.json.gz` when starting FastAPI. The first startup builds the index from the selected corpus. For repeat starts, [build the index once and reuse it](docs/cloud-run.md).
+
+The Civil Code corpus is a free, non-authentic reproduction from Normattiva. It includes the articles in the six books and omits repeal notices and preliminary provisions. [Normattiva reproduction terms](https://www.normattiva.it/staticPage/faq)
+
 ## How search works
 
 ![RAG-LAW architecture showing corpus indexing with MiniLM, FAISS and SQLite and the Streamlit-to-FastAPI request flow](docs/images/architecture.png)
 
-At startup, the API splits articles into overlapping passages, embeds them and builds an in-memory FAISS index. SQLite stores each full article. On a search request, the same encoder embeds the question, FAISS ranks the passages by cosine similarity and SQLite supplies the article text for each hit. Each API process loads the model and index once.
+When preparing an index, RAG-LAW splits articles into overlapping passages and embeds them. FAISS stores the vectors and SQLite stores each full article and passage. On a search request, the same encoder embeds the question, FAISS ranks the passages by cosine similarity and SQLite supplies the article text for each hit. Each API process loads the model and index once.
 
 ```bash
 curl -s http://127.0.0.1:8000/search \
@@ -59,11 +71,9 @@ Review the extracted text before indexing it. The parser expects headings such a
 
 ## Cloud setup and scope
 
-The original web prototype called a FastAPI container on Google Cloud Run. For a new deployment, build the `api` Docker target, which serves on port 8080. Set `RAGLAW_API_URL` on the Streamlit host to the API's base URL. For an offline model copy, set `RAGLAW_MODEL_PATH` to a directory with `tokenizer.json` and the ONNX file for your CPU from the pinned model revision.
+The original web prototype called a FastAPI container on Google Cloud Run. The [Cloud Run guide](docs/cloud-run.md) shows how to build an image with the Civil Code, SQLite and FAISS already included. It covers verifying a candidate revision before moving live traffic. Set `RAGLAW_API_URL` on the Streamlit host to the API's base URL. For an offline model copy, set `RAGLAW_MODEL_PATH` to a directory with `tokenizer.json` and the ONNX file for your CPU from the pinned model revision.
 
-The demo indexes a small corpus at startup and runs exact FAISS search on CPU. A larger deployment would need measured startup time, memory and concurrent-query latency. On a growing corpus, prebuilding the index would avoid repeating embedding work on each instance. Retrieval quality has yet to be measured against a labelled legal-search benchmark.
-
-The included corpus is fictional and the project is for demonstration and research.
+The service runs exact FAISS search on CPU. The container prebuilds its index to avoid repeating embedding work on each Cloud Run instance. Startup time, memory and concurrent-query latency still need measurement for a production sizing decision. The project is for demonstration and research, and retrieval quality has yet to be measured against a labelled legal-search benchmark.
 
 ## Repository guide
 
@@ -72,8 +82,9 @@ The included corpus is fictional and the project is for demonstration and resear
 | `ui/` | Streamlit search interface |
 | `api/` | FastAPI search and readiness routes |
 | `modules/` | MiniLM/FAISS retrieval, SQLite access and PDF utilities |
-| `examples/` | Included Italian demo corpus |
-| `scripts/` | PDF-to-JSON extraction |
+| `examples/` | Fictional demo and the Normattiva Civil Code edition |
+| `scripts/` | Corpus import and SQLite/FAISS index build |
+| `deploy/` | Cloud Build recipe for the API image |
 | `Dockerfile`, `compose.yaml` | Separate build targets and local orchestration |
 
 Code released under the [MIT License](LICENSE).

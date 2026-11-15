@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from modules.vector_db import DEMO_CORPUS, VectorDB
+from modules.encoder import MiniLMEncoder
+from modules.vector_db import DEMO_CORPUS, VectorDB, build_index
 
 
 def main():
@@ -18,11 +19,10 @@ def main():
         parser.error("Provide a non-empty query.")
 
     with TemporaryDirectory(prefix="rag-law-") as directory:
-        index = VectorDB(
-            args.corpus,
-            Path(directory) / "articles.sqlite3",
-            os.environ.get("RAGLAW_MODEL_PATH"),
-        )
+        path = Path(directory) / "index"
+        model = MiniLMEncoder(os.environ.get("RAGLAW_MODEL_PATH"))
+        build_index(args.corpus, path, model)
+        index = VectorDB(path, model)
         for result in index.query_legal_code(args.query, args.top_k):
             print(f"Article {result['article_number']}")
             print(result["full_article"])

@@ -3,10 +3,12 @@
 import os
 from pathlib import Path
 import platform
+import time
 
 from huggingface_hub import hf_hub_download
 import numpy as np
 import onnxruntime as ort
+from requests.exceptions import ChunkedEncodingError, ConnectionError, Timeout
 from tokenizers import Tokenizer
 
 
@@ -31,7 +33,13 @@ def model_files(directory: str | None = None) -> tuple[Path, Path]:
         return root / "tokenizer.json", root / weights
 
     def download(filename: str) -> Path:
-        return Path(hf_hub_download(MODEL_ID, filename, revision=MODEL_REVISION, token=False))
+        for attempt in range(3):
+            try:
+                return Path(hf_hub_download(MODEL_ID, filename, revision=MODEL_REVISION, token=False))
+            except (ChunkedEncodingError, ConnectionError, Timeout):
+                if attempt == 2:
+                    raise
+                time.sleep(2 ** attempt)
 
     return download("tokenizer.json"), download(f"onnx/{weights}")
 
@@ -39,6 +47,7 @@ def model_files(directory: str | None = None) -> tuple[Path, Path]:
 class MiniLMEncoder:
     def __init__(self, directory: str | None = None):
         tokenizer_path, model_path = model_files(directory)
+        self.weights = model_path.name
         self.tokenizer = Tokenizer.from_file(str(tokenizer_path))
         self.tokenizer.enable_truncation(max_length=MAX_TOKENS, stride=WINDOW_OVERLAP)
         self.tokenizer.enable_padding(

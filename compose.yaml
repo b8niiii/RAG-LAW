@@ -3,6 +3,8 @@ services:
     build:
       context: .
       target: api
+      args:
+        RAGLAW_BUILD_CORPUS: ${RAGLAW_BUILD_CORPUS:-examples/italian_demo.json}
     ports:
       - "127.0.0.1:8000:8080"
     healthcheck:

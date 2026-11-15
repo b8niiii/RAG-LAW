@@ -1,0 +1,16 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --target
+      - api
+      - --build-arg
+      - RAGLAW_BUILD_CORPUS=${_CORPUS}
+      - --tag
+      - ${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}
+substitutions:
+  _CORPUS: examples/civil_code.json.gz
+timeout: 1800s

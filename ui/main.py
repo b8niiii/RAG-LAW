@@ -77,5 +77,11 @@ if result := st.session_state.get("search_response"):
                         st.write(hit["full_article"])
     else:
         st.info("The search returned no passages.")
-
-st.caption("The included demo corpus is fictional. For research and demonstration only.")
+    corpus = result.get("corpus", {})
+    if corpus.get("kind") == "demo":
+        st.caption("The included demo corpus is fictional. For research and demonstration only.")
+    elif corpus.get("kind") == "civil_code":
+        st.caption(
+            f"Source: [Normattiva]({corpus['url']}) · Snapshot {corpus['as_of']} · "
+            "Riproduzione non autentica e gratuita."
+        )
