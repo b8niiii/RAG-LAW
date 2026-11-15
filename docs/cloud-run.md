@@ -59,7 +59,7 @@ gcloud run deploy "$GCP_SERVICE" --project "$GCP_PROJECT" --region "$GCP_REGION"
 export VERIFY_URL='https://revision-url-printed-by-cloud-run'
 curl -fsS "$VERIFY_URL/health"
 curl -fsS "$VERIFY_URL/search" -H 'Content-Type: application/json' \
-  -d '{"query":"Chi paga le riparazioni necessarie in un immobile locato?","top_k":5}'
+  -d '{"query":"Quali riparazioni necessarie spettano al locatore durante la locazione?","top_k":5}'
 ```
 
 Check that `/health` identifies the dated Civil Code corpus and that the search returns Article 1576 with a passage and its full text. Then direct traffic to the verified revision in the Cloud Run console. Use the service URL as `RAGLAW_API_URL` when running Streamlit. Revert to a previous revision from the Cloud Run traffic page if needed.

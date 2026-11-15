@@ -7,7 +7,7 @@ import streamlit as st
 
 
 API_URL = os.environ.get("RAGLAW_API_URL", "http://127.0.0.1:8000").rstrip("/")
-EXAMPLE_QUERY = "Chi paga le riparazioni straordinarie in una casa in affitto?"
+EXAMPLE_QUERY = "Quali riparazioni necessarie spettano al locatore durante la locazione?"
 
 st.set_page_config(page_title="RAG-LAW · Legal search", layout="wide")
 st.markdown(

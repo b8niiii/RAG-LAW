@@ -52,7 +52,7 @@ When preparing an index, RAG-LAW splits articles into overlapping passages and e
 ```bash
 curl -s http://127.0.0.1:8000/search \
   -H 'Content-Type: application/json' \
-  -d '{"query":"Chi paga le riparazioni straordinarie in una casa in affitto?","top_k":3}'
+  -d '{"query":"Quali riparazioni necessarie spettano al locatore durante la locazione?","top_k":3}'
 ```
 
 Use `GET /health` to check readiness and see the indexed article and passage counts. Run `python predict.py "query" --top-k 3` for a command-line API client, or `python main.py "query"` to search locally without the server.
