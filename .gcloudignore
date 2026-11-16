@@ -1,0 +1,9 @@
+.gcloudignore
+.git
+.venv
+.env
+.env.*
+__pycache__
+codes
+data
+docs

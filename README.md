@@ -1,110 +1,90 @@
 # RAG-LAW
 
-Semantic search over legal codes using dense embeddings, FAISS and SQLite.
+**Search Italian legal documents by meaning.** Turn a question into ranked passages, then open the full article for context.
 
-This university project explores a retrieval pipeline for turning legal PDFs into structured articles, indexing their text and retrieving the most relevant provisions for a natural-language query. It is a search system, not a source of legal advice.
+RAG-LAW combines the original retrieval pipeline and its Streamlit interface in one repository. The backend uses a multilingual MiniLM encoder, FAISS for passage search and SQLite for complete article text. The app includes a quick fictional demo and a searchable edition of the **Italian Civil Code**.
 
-## What it does
+<p align="center">
+  <img src="docs/images/civil-code-demo.gif" alt="RAG-LAW searches the Italian Civil Code and opens the full text of Article 1576" width="880">
+</p>
 
-1. Extracts text from a legal PDF.
-2. Splits the document into numbered articles.
-3. Stores complete articles and metadata in SQLite.
-4. Chunks and embeds the articles with a multilingual sentence-transformer.
-5. Builds a FAISS index for semantic retrieval.
-6. Returns the full text of the highest-ranking articles.
+The walkthrough submits a real query on the Civil Code and opens the full text of Article 1576. [Normattiva source](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:regio.decreto:1942-03-16;262) · [Static preview of the fictional demo](docs/images/search-demo.jpg)
 
-## Architecture
+## Run the demo
 
-```text
-PDF
- └─> article extraction
-      └─> JSON articles
-           ├─> SQLite: full text and metadata
-           └─> preprocessing and embeddings
-                └─> FAISS semantic index
-                     └─> natural-language query
-```
-
-The main implementation is in `modules/vector_db.py`. PDF and article parsing utilities are under `modules/`, runnable helpers under `scripts/`, and end-to-end examples under `test/`.
-
-## Tech stack
-
-- Python 3.9+
-- Haystack 1.x
-- FAISS
-- Sentence Transformers
-- SQLite
-- PyPDF2, pdf2image and Tesseract for document processing
-- Poetry for dependency management
-
-## Setup
+Use **Python 3.11** on ARM64 or x86-64. The first start downloads the tokenizer and a quantized ONNX export of [MiniLM](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2) from a pinned revision (about 128 MB). The example corpus is included and the app needs no API key.
 
 ```bash
-git clone https://github.com/b8niiii/RAG-LAW.git
-cd RAG-LAW
-poetry install
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn api.main:app --port 8000
 ```
 
-Some PDF workflows require external tools: [Poppler](https://poppler.freedesktop.org/) and [Tesseract OCR](https://github.com/tesseract-ocr/tesseract).
-
-Do not commit copyrighted legal corpora or generated databases. Place local inputs under `codes/` and generated files under `data/`; both should remain environment-specific.
-
-## Usage
-
-Prepare a PDF path in `scripts/article_splitter.py`, then extract its articles:
+Activate the same virtual environment in a second terminal and start the UI.
 
 ```bash
-poetry run python scripts/article_splitter.py --output articles.json
+python -m streamlit run ui/main.py
 ```
 
-Build the SQLite/FAISS index and run a query:
+Open [Streamlit](http://localhost:8501) and submit the pre-filled question about repairs in a rented home. The top result should be **Article 101 · Riparazioni straordinarie dell’abitazione**. Open **Read full article** to see the rest of the provision. The [API documentation](http://127.0.0.1:8000/docs) shows the request and response schemas.
+
+With Docker Compose, run `docker compose up --build` and open the same Streamlit URL. The API image caches the model during the build. The initial build needs internet access.
+
+## Search the Italian Civil Code
+
+The included edition indexes **3,064 articles** across all six books as of **15 November 2026**. Try the example question about repairs in a rented home and look for **Article 1576**. Sources and dates are shown beneath the search results. [Normattiva](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:regio.decreto:1942-03-16;262)
 
 ```bash
-poetry run python test/search_test_from_scratch.py
+RAGLAW_BUILD_CORPUS=examples/civil_code.json.gz docker compose up --build
 ```
 
-To reuse an existing index:
+Without Docker, set `RAGLAW_CORPUS_PATH=examples/civil_code.json.gz` when starting FastAPI. The first startup builds the index from the selected corpus. For repeat starts, [build the index once and reuse it](docs/cloud-run.md).
+
+The Civil Code corpus is a free, non-authentic reproduction from Normattiva. It includes the articles in the six books and omits repeal notices and preliminary provisions. [Normattiva reproduction terms](https://www.normattiva.it/staticPage/faq)
+
+## How search works
+
+![RAG-LAW architecture showing corpus indexing with MiniLM, FAISS and SQLite and the Streamlit-to-FastAPI request flow](docs/images/architecture.png)
+
+When preparing an index, RAG-LAW splits articles into overlapping passages and embeds them. FAISS stores the vectors and SQLite stores each full article and passage. On a search request, the same encoder embeds the question, FAISS ranks the passages by cosine similarity and SQLite supplies the article text for each hit. Each API process loads the model and index once.
 
 ```bash
-poetry run python test/search_test_w_given_dataset.py
+curl -s http://127.0.0.1:8000/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"Quali riparazioni necessarie spettano al locatore durante la locazione?","top_k":3}'
 ```
 
-The scripts currently serve as reproducible examples rather than a stable command-line API. Paths may need to be adapted to the local legal corpus.
+Use `GET /health` to check readiness and see the indexed article and passage counts. Run `python predict.py "query" --top-k 3` for a command-line API client, or `python main.py "query"` to search locally without the server.
 
-## Repository structure
+## Use your own corpus
 
-```text
-.
-├── main.py                  # minimal query example
-├── modules/
-│   ├── articles_split.py    # article extraction
-│   ├── pdf_split.py         # PDF utilities
-│   └── vector_db.py         # storage, embeddings and retrieval
-├── scripts/
-│   └── article_splitter.py
-├── test/                    # end-to-end usage examples
-├── pyproject.toml
-└── poetry.lock
+The demo ships with [eight fictional Italian articles](examples/italian_demo.json). For another corpus, set `RAGLAW_CORPUS_PATH` when starting the API. Supply a UTF-8 JSON array whose records contain `article_number` and `text`, with an optional `title`. The following commands convert a PDF with numbered Italian articles after you install Poppler and Tesseract on your system.
+
+```bash
+python -m pip install -r requirements-ocr.txt
+python -m scripts.article_splitter path/to/code.pdf --output data/articles.json
+RAGLAW_CORPUS_PATH=data/articles.json python -m uvicorn api.main:app --port 8000
 ```
 
-## Current status and limitations
+Review the extracted text before indexing it. The parser expects headings such as `Art. 101` and OCR quality depends on the document layout. Use source material you have permission to process and distribute.
 
-This is an educational prototype.
+## Cloud setup and scope
 
-- Retrieval quality has not yet been evaluated against a labelled benchmark.
-- OCR quality depends on the source PDF and local Poppler/Tesseract installation.
-- The code targets Haystack 1.x and uses a CPU FAISS index.
-- The repository does not distribute a legal corpus or pre-built index.
-- Retrieved passages must be verified against an authoritative legal source.
+The original web prototype called a FastAPI container on Google Cloud Run. The [Cloud Run guide](docs/cloud-run.md) shows how to build an image with the Civil Code, SQLite and FAISS already included. It covers verifying a candidate revision before moving live traffic. Set `RAGLAW_API_URL` on the Streamlit host to the API's base URL. For an offline model copy, set `RAGLAW_MODEL_PATH` to a directory with `tokenizer.json` and the ONNX file for your CPU from the pinned model revision.
 
-## Roadmap
+The service runs exact FAISS search on CPU. The container prebuilds its index to avoid repeating embedding work on each Cloud Run instance. Startup time, memory and concurrent-query latency still need measurement for a production sizing decision. The project is for demonstration and research, and retrieval quality has yet to be measured against a labelled legal-search benchmark.
 
-- Add a small redistributable example corpus.
-- Replace example scripts with a documented CLI.
-- Add retrieval metrics such as Recall@k and MRR.
-- Add automated tests and continuous integration.
-- Upgrade or isolate the legacy Haystack dependency.
+## Repository guide
 
-## License
+| Path | What it contains |
+| --- | --- |
+| `ui/` | Streamlit search interface |
+| `api/` | FastAPI search and readiness routes |
+| `modules/` | MiniLM/FAISS retrieval, SQLite access and PDF utilities |
+| `examples/` | Fictional demo and the Normattiva Civil Code edition |
+| `scripts/` | Corpus import and SQLite/FAISS index build |
+| `deploy/` | Cloud Build recipe for the API image |
+| `Dockerfile`, `compose.yaml` | Separate build targets and local orchestration |
 
-Released under the MIT License.
+Code released under the [MIT License](LICENSE).

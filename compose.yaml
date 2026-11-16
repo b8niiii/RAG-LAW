@@ -1,0 +1,27 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+      args:
+        RAGLAW_BUILD_CORPUS: ${RAGLAW_BUILD_CORPUS:-examples/italian_demo.json}
+    ports:
+      - "127.0.0.1:8000:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 90s
+
+  ui:
+    build:
+      context: .
+      target: ui
+    environment:
+      RAGLAW_API_URL: http://api:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8501:8501"

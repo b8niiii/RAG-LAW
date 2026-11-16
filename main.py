@@ -1,23 +1,32 @@
-"""Minimal semantic-search example for an existing RAG-LAW index."""
+"""Run a semantic search from a terminal with a local corpus."""
 
-from haystack.document_stores import FAISSDocumentStore
+import argparse
+import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from modules.vector_db import VectorDB
+from modules.encoder import MiniLMEncoder
+from modules.vector_db import DEMO_CORPUS, VectorDB, build_index
 
 
-def main() -> None:
-    document_store = FAISSDocumentStore.load("data/vector_db.faiss")
-    vector_db = VectorDB(
-        sql_path="data/sqlite.db",
-        faiss_path="sqlite:///data/document_store.db",
-        document_store=document_store,
-    )
-    vector_db.initialize_retriever()
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("query")
+    parser.add_argument("--top-k", type=int, default=3, choices=range(1, 21))
+    parser.add_argument("--corpus", type=Path, default=DEMO_CORPUS)
+    args = parser.parse_args()
+    if not args.query.strip():
+        parser.error("Provide a non-empty query.")
 
-    query = input("Enter a legal query: ")
-    for result in vector_db.query_legal_code(query=query, top_k=5):
-        article_number = result["metadata"].get("article_number")
-        print(f"Article {article_number}: {result['chunk_content']}\n")
+    with TemporaryDirectory(prefix="rag-law-") as directory:
+        path = Path(directory) / "index"
+        model = MiniLMEncoder(os.environ.get("RAGLAW_MODEL_PATH"))
+        build_index(args.corpus, path, model)
+        index = VectorDB(path, model)
+        for result in index.query_legal_code(args.query, args.top_k):
+            print(f"Article {result['article_number']}")
+            print(result["full_article"])
+            print()
 
 
 if __name__ == "__main__":
